@@ -54,14 +54,9 @@ byte espMac[6];                                     // Byte array to store our M
 const float fcrgbVersion = 0.01;                    // current version
 String mqttClientId;                                // Auto-generated MQTT ClientID
 String mqttCommandTopic;                            // MQTT topic for incoming panel commands
-String mqttLightCommandTopic;                       // MQTT topic for incoming panel backlight on/off commands
-String mqttLightBrightCommandTopic;                 // MQTT topic for incoming panel backlight dimmer commands
-String mqttLightBrightStateTopic;                   // MQTT topic for outgoing panel backlight dimmer state
-String mqttLightStateTopic;                         // MQTT topic for outgoing panel backlight on/off state
+String mqttSetTopic;                                // MQTT topic for incoming switch commands
 const uint16_t mqttMaxPacketSize = 4096;            // Size of buffer for incoming MQTT message
 String mqttSensorTopic;                             // MQTT topic for publishing device information in JSON format
-String mqttStateJSONTopic;                          // MQTT topic for outgoing panel interactions in JSON format
-String mqttStateTopic;                              // MQTT topic for outgoing panel interactions
 String mqttStatusTopic;                             // MQTT topic for publishing device connectivity state
 const unsigned long reConnectTimeout = 15;          // Timeout for WiFi reconnection attempts in seconds
 bool shouldSaveConfig = false;                      // Flag to save json config to SPIFFS
@@ -69,6 +64,12 @@ const long statusUpdateInterval = 300000;           // Time in msec between publ
 long statusUpdateTimer = 0;                         // Timer for update check
 const char wifiConfigAP[16] = "FCRGB";              // First-time config SSID
 const char wifiConfigPass[16] = "fcrgbcontroller";  // First-time config WPA2 password
+bool rainbow = false;                               // Controls rainbow mode
+
+int brightness, red, green, blue;                   // new lighting values
+int lastBrightness, lastRed, lastGreen, lastBlue;   // last lighting values 
+bool lightsOn;                                      // whether or not the lights are on.
+bool lastLightsOn;                                  // last light on value
 
 MQTTClient mqttClient(mqttMaxPacketSize);
 WebServer webServer(80);
@@ -86,10 +87,13 @@ void espReset();
 void espWifiConfigCallback(ESP_WiFiManager *myWiFiManager);
 void espWifiReconnect();
 void espWifiSetup();
+void ledsHandle();
 void handleRainbow();
+void ledsCommand(DynamicJsonDocument cmd);
 void ledsSetup();
 void mqttCallback(String &strTopic, String &strPayload);
 void mqttConnect();
+void mqttParseJson(String &strPayload);
 void mqttSetup();
 void mqttStatusUpdate();
 void webHandleConfigReset();

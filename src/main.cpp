@@ -23,8 +23,6 @@ void setup()
 
   ledsSetup();
 
-  FastLED.setBrightness(32);
-
   debugPrintln(F("SYSTEM: System init complete."));
 }
 
@@ -44,7 +42,7 @@ void loop()
     debugPrintln("MQTT: not connected, connecting.");
     mqttConnect();
   }
-  mqttClient.loop();        // MQTT client loop
+  mqttClient.loop(); // MQTT client loop
 
   webServer.handleClient(); // webServer loop
 
@@ -54,7 +52,12 @@ void loop()
     mqttStatusUpdate();
   }
 
-  handleRainbow();
+  if (rainbow && lightsOn)
+  {
+    handleRainbow();
+  }
+
+  ledsHandle();
 }
 
 // Clear out all local storage
@@ -266,11 +269,68 @@ void espWifiSetup()
   digitalWrite(ONBOARD_LED, LED_OFF);
 }
 
+void ledsHandle()
+{
+  if (lastLightsOn != lightsOn)
+  {
+    debugPrintln(F("ledsHandle: lightsOn changing"));
+    if (lightsOn)
+    {
+      debugPrintln(F("ledsHandle: lightsOn ON"));
+      FastLED.setBrightness(lastBrightness);
+      fill_solid(leds, NUM_LEDS, CRGB(lastRed, lastGreen, lastBlue));
+      FastLED.show();
+    }
+    else
+    {
+      debugPrintln(F("ledsHandle: lightsOn OFF"));
+      FastLED.setBrightness(0);
+      FastLED.show();
+    }
+    lastLightsOn = lightsOn;
+  }
+
+  if (lightsOn)
+  {
+    if (lastBrightness != brightness)
+    {
+      debugPrintln(F("ledsHandle: brightness changing"));
+      FastLED.setBrightness(brightness);
+      FastLED.show();
+      lastBrightness = brightness;
+    }
+
+    if (lastRed != red || lastGreen != green || lastBlue != blue)
+    {
+      debugPrintln(F("ledsHandle: color changing"));
+      fill_solid(leds, NUM_LEDS, CRGB(red, green, blue));
+      FastLED.show();
+      lastRed = red;
+      lastGreen = green;
+      lastBlue = blue;
+    }
+  }
+}
+
 void handleRainbow()
 {
   uint8_t hueRate = 100;                            // Effects cycle rate. (range >0 to 255)
   fill_rainbow(leds, NUM_LEDS, millis() / hueRate); // Start hue effected by time.
   FastLED.show();
+}
+
+void ledsCommand(DynamicJsonDocument cmd)
+{
+
+  const char *hex = 1 + (cmd["color"].as<const char *>()); // skip leading '#'
+  sscanf(0 + hex, "%2x", &red);
+  sscanf(2 + hex, "%2x", &green);
+  sscanf(4 + hex, "%2x", &blue);
+
+  brightness = cmd["brightness"].as<int>();
+  rainbow = cmd["rainbow"].as<bool>();
+
+  debugPrintln(String(F("LEDS: red: ")) + String(red) + "; green: " + String(green) + "; blue: " + String(blue) + "; brightness: " + String(brightness) + "; rainbow: " + String(rainbow));
 }
 
 void ledsSetup()
@@ -286,6 +346,10 @@ void mqttCallback(String &strTopic, String &strPayload)
   if (strTopic == mqttCommandTopic && strPayload == "")
   {                     // '[...]/device/command' -m '' = No command requested, respond with mqttStatusUpdate()
     mqttStatusUpdate(); // return status JSON via MQTT
+  }
+  else if (strTopic == mqttCommandTopic && strPayload != "")
+  {
+    mqttParseJson(strPayload);
   }
   else if (strTopic == (mqttCommandTopic + "/statusupdate"))
   {                     // '[...]/device/command/statusupdate' == mqttStatusUpdate()
@@ -304,6 +368,11 @@ void mqttCallback(String &strTopic, String &strPayload)
   { // catch a dangling LWT from a previous connection if it appears
     mqttClient.publish(mqttStatusTopic, "ON");
   }
+  else if (strTopic == mqttSetTopic)
+  {
+    debugPrintln(F("MQTT ON/OFF changing"));ß
+    lightsOn = strPayload == "ON";
+  }
 }
 
 // MQTT connection and subscriptions
@@ -315,19 +384,12 @@ void mqttConnect()
                                        // still running the sketch
 
   // MQTT topic string definitions
-  mqttStateTopic = "fcrgb/" + String(fcrgbNode) + "/state";
-  mqttStateJSONTopic = "fcrgb/" + String(fcrgbNode) + "/state/json";
   mqttCommandTopic = "fcrgb/" + String(fcrgbNode) + "/command";
   mqttStatusTopic = "fcrgb/" + String(fcrgbNode) + "/status";
   mqttSensorTopic = "fcrgb/" + String(fcrgbNode) + "/sensor";
-  mqttLightCommandTopic = "fcrgb/" + String(fcrgbNode) + "/light/switch";
-  mqttLightStateTopic = "fcrgb/" + String(fcrgbNode) + "/light/state";
-  mqttLightBrightCommandTopic = "fcrgb/" + String(fcrgbNode) + "/brightness/set";
-  mqttLightBrightStateTopic = "fcrgb/" + String(fcrgbNode) + "/brightness/state";
+  mqttSetTopic = "fcrgb/" + String(fcrgbNode) + "/set";
 
   const String mqttCommandSubscription = mqttCommandTopic + "/#";
-  const String mqttLightSubscription = "fcrgb/" + String(fcrgbNode) + "/light/#";
-  const String mqttLightBrightSubscription = "fcrgb/" + String(fcrgbNode) + "/brightness/#";
 
   // Loop until we're reconnected to MQTT
   while (!mqttClient.connected())
@@ -352,21 +414,17 @@ void mqttConnect()
       {
         debugPrintln(String(F("MQTT: subscribed to ")) + mqttCommandSubscription);
       }
-      if (mqttClient.subscribe(mqttLightSubscription))
-      {
-        debugPrintln(String(F("MQTT: subscribed to ")) + mqttLightSubscription);
-      }
-      if (mqttClient.subscribe(mqttLightBrightSubscription))
-      {
-        debugPrintln(String(F("MQTT: subscribed to ")) + mqttLightBrightSubscription);
-      }
       if (mqttClient.subscribe(mqttStatusTopic))
       {
         debugPrintln(String(F("MQTT: subscribed to ")) + mqttStatusTopic);
       }
-      if(mqttClient.subscribe(mqttSensorTopic))
+      if (mqttClient.subscribe(mqttSensorTopic))
       {
         debugPrintln(String(F("MQTT: subscribed to ")) + mqttSensorTopic);
+      }
+      if (mqttClient.subscribe(mqttSetTopic))
+      {
+        debugPrintln(String(F("MQTT: subscribed to ")) + mqttSetTopic);
       }
 
       if (mqttFirstConnect)
@@ -405,6 +463,28 @@ void mqttConnect()
         delay(10);
       }
     }
+  }
+}
+
+// Parse an incoming JSON array into individual Nextion commands
+void mqttParseJson(String &strPayload)
+{
+  if (strPayload.endsWith(",]"))
+  { // Trailing null array elements are an artifact of older Home Assistant automations and need to
+    // be removed before parsing by ArduinoJSON 6+
+    strPayload.remove(strPayload.length() - 2, 2);
+    strPayload.concat("]");
+  }
+  DynamicJsonDocument fcrgbCommand(mqttMaxPacketSize + 1024);
+  DeserializationError jsonError = deserializeJson(fcrgbCommand, strPayload);
+  if (jsonError)
+  { // Couldn't parse incoming JSON command
+    debugPrintln(String(F("MQTT: [ERROR] Failed to parse incoming JSON command with error: ")) + String(jsonError.c_str()));
+  }
+  else
+  {
+    // deserializeJson(fcrgbCommands, strPayload);
+    ledsCommand(fcrgbCommand);
   }
 }
 
