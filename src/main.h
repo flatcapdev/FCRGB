@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <rom/rtc.h>
 #include <ArduinoNvs.h>
+#include <ArduinoOTA.h>
 #ifdef ESP32
   #include <esp_wifi.h>
   #include <WiFi.h>
@@ -86,11 +87,12 @@ void configSave();
 void configSaveCallback();
 void debugPrintln(String debugText);
 void espReset();
+void espSetupOta();
 void espWifiConfigCallback(ESP_WiFiManager *myWiFiManager);
 void espWifiReconnect();
 void espWifiSetup();
-void ledsHandle();
 void handleRainbow();
+void ledsHandle();
 void ledsCommand(DynamicJsonDocument cmd);
 void ledsSetup();
 void mqttCallback(String &strTopic, String &strPayload);

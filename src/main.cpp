@@ -17,7 +17,7 @@ void setup()
 
   webServerSetup(); // Start up web server
 
-  // TODO: OTA Updates go here
+  espSetupOta();
 
   mqttSetup();
 
@@ -42,8 +42,9 @@ void loop()
     debugPrintln("MQTT: not connected, connecting.");
     mqttConnect();
   }
-  mqttClient.loop(); // MQTT client loop
 
+  mqttClient.loop();        // MQTT client loop
+  ArduinoOTA.handle();      // Arduino OTA loop
   webServer.handleClient(); // webServer loop
 
   if ((millis() - statusUpdateTimer) >= statusUpdateInterval)
@@ -158,6 +159,40 @@ void espReset()
 
   ESP.restart();
   delay(5000);
+}
+
+// (mostly) boilerplate OTA setup from library examples
+void espSetupOta()
+{
+  ArduinoOTA.setHostname(fcrgbNode);
+  ArduinoOTA.setPassword(configPassword);
+
+  ArduinoOTA.onStart([]() {
+    debugPrintln(F("ESP OTA: update start"));
+  });
+  ArduinoOTA.onEnd([]() {
+    debugPrintln(F("ESP OTA: update complete"));
+    espReset();
+  });
+  ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
+    debugPrintln(String(progress / (total / 100)) + "%\"");
+  });
+  ArduinoOTA.onError([](ota_error_t error) {
+    debugPrintln(String(F("ESP OTA: ERROR code ")) + String(error));
+    if (error == OTA_AUTH_ERROR)
+      debugPrintln(F("ESP OTA: ERROR - Auth Failed"));
+    else if (error == OTA_BEGIN_ERROR)
+      debugPrintln(F("ESP OTA: ERROR - Begin Failed"));
+    else if (error == OTA_CONNECT_ERROR)
+      debugPrintln(F("ESP OTA: ERROR - Connect Failed"));
+    else if (error == OTA_RECEIVE_ERROR)
+      debugPrintln(F("ESP OTA: ERROR - Receive Failed"));
+    else if (error == OTA_END_ERROR)
+      debugPrintln(F("ESP OTA: ERROR - End Failed"));
+    delay(5000);
+  });
+  ArduinoOTA.begin();
+  debugPrintln(F("ESP OTA: Over the Air firmware update ready"));
 }
 
 // Notify the user that we're entering config mode
@@ -280,7 +315,7 @@ void ledsHandle()
 {
   if (lastLightsOn != lightsOn)
   {
-    debugPrintln(String(F("ledsHandle: lightsOn changing (")) + String(ledsToUse)+ ")");
+    debugPrintln(String(F("ledsHandle: lightsOn changing (")) + String(ledsToUse) + ")");
     if (lightsOn)
     {
       debugPrintln(F("ledsHandle: lightsOn ON"));
@@ -299,19 +334,23 @@ void ledsHandle()
 
   if (lightsOn)
   {
-    if (lastBrightness != brightness)
+    bool brightnessChanged = lastBrightness != brightness;
+    if (brightnessChanged)
     {
       debugPrintln(F("ledsHandle: brightness changing"));
       FastLED.setBrightness(brightness);
       FastLED.show();
       lastBrightness = brightness;
-      if(0 == brightness)
+      if (0 == brightness)
       {
         lightsOn = false;
       }
     }
 
-    if (lastRed != red || lastGreen != green || lastBlue != blue)
+    bool redChanged = lastRed != red;
+    bool greenChanged = lastGreen != green;
+    bool blueChanged = lastBlue != blue;
+    if (redChanged || greenChanged || blueChanged)
     {
       debugPrintln(F("ledsHandle: color changing"));
       fill_solid(leds, atoi(ledsToUse), CRGB(red, green, blue));
@@ -320,12 +359,37 @@ void ledsHandle()
       lastGreen = green;
       lastBlue = blue;
     }
+
+    if (brightnessChanged || redChanged || greenChanged || blueChanged)
+    {
+      if (brightnessChanged)
+      {
+        if (brightnessChanged)
+        {
+          NVS.setInt("lastBrightness", lastBrightness);
+        }
+        if (redChanged)
+        {
+          NVS.setInt("lastRed", lastRed);
+        }
+        if (greenChanged)
+        {
+          NVS.setInt("lastGreen", lastGreen);
+        }
+        if (blueChanged)
+        {
+          NVS.setInt("lastBlue", lastBlue);
+        }
+
+        NVS.commit();
+      }
+    }
   }
 }
 
 void handleRainbow()
 {
-  uint8_t hueRate = 100;                            // Effects cycle rate. (range >0 to 255)
+  uint8_t hueRate = 100;                                   // Effects cycle rate. (range >0 to 255)
   fill_rainbow(leds, atoi(ledsToUse), millis() / hueRate); // Start hue effected by time.
   FastLED.show();
 }
@@ -341,7 +405,7 @@ void ledsCommand(DynamicJsonDocument cmd)
   brightness = cmd["brightness"].as<int>();
   rainbow = cmd["rainbow"].as<bool>();
 
-  if( 0 != brightness)
+  if (0 != brightness)
   {
     // force it
     lastLightsOn = false;
@@ -356,6 +420,21 @@ void ledsSetup()
 
   debugPrintln(String(F("ledsSetup: LED Count: ")) + String(ledsToUse));
   FastLED.addLeds<NEOPIXEL, LED_DATA_PIN>(leds, atoi(ledsToUse)); // GRB ordering is assumed
+
+  while (millis() < 2000)
+  {
+    handleRainbow();
+  }
+  if (NVS.begin())
+  {
+    lastRed = NVS.getInt("lastRed");
+    lastGreen = NVS.getInt("lastGreen");
+    lastBlue = NVS.getInt("lastBlue");
+    lastBrightness = NVS.getInt("lastBrightness");
+
+    lightsOn = 0 != brightness;
+    lastLightsOn = !lightsOn;
+  }
 }
 
 void mqttCallback(String &strTopic, String &strPayload)
@@ -397,7 +476,7 @@ void mqttCallback(String &strTopic, String &strPayload)
     debugPrintln(F("MQTT brightness changing"));
     int b = strPayload.toInt();
     debugPrintln(String(F("\tto: ")) + String(b) + "%");
-    int level = 255.0 * (b/100.0);
+    int level = 255.0 * (b / 100.0);
     debugPrintln(String(F("\tlevel: ")) + String(level));
     brightness = level;
     // FastLED.setBrightness(level);
@@ -457,7 +536,7 @@ void mqttConnect()
       {
         debugPrintln(String(F("MQTT: subscribed to ")) + mqttSetTopic);
       }
-      if(mqttClient.subscribe(mqttBrightnessTopic))
+      if (mqttClient.subscribe(mqttBrightnessTopic))
       {
         debugPrintln(String(F("MQTT: subscribed to ")) + mqttBrightnessTopic);
       }
@@ -493,8 +572,8 @@ void mqttConnect()
       unsigned long mqttReconnectTimer = millis(); // record current time for our timeout
       while ((millis() - mqttReconnectTimer) < 30000)
       { // Handle HTTP and OTA while we're waiting 30sec for MQTT to reconnect
-        // webServer.handleClient();
-        // ArduinoOTA.handle();
+        webServer.handleClient();
+        ArduinoOTA.handle();
         delay(10);
       }
     }
@@ -668,7 +747,6 @@ void webHandleConfigSave()
     webServer.arg("ledsToUse").toCharArray(ledsToUse, 4);
   }
 
-
   if (shouldSaveConfig)
   { // Config updated, notify user and trigger write to SPIFFS
     httpMessage += String(F("<meta http-equiv='refresh' content='15;url=/' />"));
@@ -783,7 +861,7 @@ void webHandleRoot()
   {
     httpMessage += String("********");
   }
-   
+
   httpMessage += String(F("'><br/><hr><button type='submit'>save settings</button></form>"));
 
   httpMessage += String(F("<hr><form method='get' action='reboot'>"));
