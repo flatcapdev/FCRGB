@@ -85,6 +85,7 @@ void configRead()
     NVS.getString("mqttPassword").toCharArray(mqttPassword, sizeof(mqttPassword));
     NVS.getString("configPassword").toCharArray(configPassword, sizeof(configPassword));
     NVS.getString("configUser").toCharArray(configUser, sizeof(configUser));
+    NVS.getString("NumLEDs").toCharArray(ledsToUse, sizeof(ledsToUse));
 
     debugPrintln(String(F("NVS: fcrgbNode = ")) + String(fcrgbNode));
     debugPrintln(String(F("NVS: mqttServer = ")) + String(mqttServer));
@@ -93,6 +94,7 @@ void configRead()
     debugPrintln(String(F("NVS: mqttPassword = ")) + String(mqttPassword));
     debugPrintln(String(F("NVS: configUser = ")) + String(configUser));
     debugPrintln(String(F("NVS: configPassword = ")) + String(configPassword));
+    debugPrintln(String(F("NWS: NumLEDs = ")) + String(ledsToUse));
   }
   else
   {
@@ -111,6 +113,7 @@ void configSave()
   NVS.setString("mqttPassword", mqttPassword);
   NVS.setString("configPassword", configPassword);
   NVS.setString("configUser", configUser);
+  NVS.setString("NumLEDs", ledsToUse);
 
   NVS.commit();
 
@@ -121,6 +124,7 @@ void configSave()
   debugPrintln(String(F("NVS: mqttPassword = ")) + String(mqttPassword));
   debugPrintln(String(F("NVS: configUser = ")) + String(configUser));
   debugPrintln(String(F("NVS: configPassword = ")) + String(configPassword));
+  debugPrintln(String(F("NWS: NumLEDs = ")) + String(ledsToUse));
 
   shouldSaveConfig = false;
 }
@@ -206,6 +210,7 @@ void espWifiSetup()
     ESP_WMParameter custom_mqttPassword("mqttPassword", "MQTT Password", mqttPassword, 31, " maxlength=31 type='password'");
     ESP_WMParameter custom_configPassword("configPassword", "Config Password", configPassword, 31, " maxlength=31 type='password'");
     ESP_WMParameter custom_configUser("configUser", "Config User", configUser, 15, " maxlength=31'");
+    ESP_WMParameter custom_numLeds("ledsToUse", "Number of LEDS", ledsToUse, 3, " maxlength=3 type='number'");
 
     ESP_WiFiManager wifiManager;
     wifiManager.setSaveConfigCallback(configSaveCallback); // set config save notify callback
@@ -219,6 +224,7 @@ void espWifiSetup()
     wifiManager.addParameter(&custom_mqttPassword);
     wifiManager.addParameter(&custom_configUser);
     wifiManager.addParameter(&custom_configPassword);
+    wifiManager.addParameter(&custom_numLeds);
 
     // Timeout config portal after connectTimeout seconds, useful if configured wifi network was temporarily unavailable
     wifiManager.setTimeout(connectTimeout);
@@ -242,6 +248,7 @@ void espWifiSetup()
     strcpy(mqttPassword, custom_mqttPassword.getValue());
     strcpy(configPassword, custom_configPassword.getValue());
     strcpy(configUser, custom_configUser.getValue());
+    strcpy(ledsToUse, custom_numLeds.getValue());
 
     if (shouldSaveConfig)
     { // Save the custom parameters to FS
@@ -273,12 +280,12 @@ void ledsHandle()
 {
   if (lastLightsOn != lightsOn)
   {
-    debugPrintln(F("ledsHandle: lightsOn changing"));
+    debugPrintln(String(F("ledsHandle: lightsOn changing (")) + String(ledsToUse)+ ")");
     if (lightsOn)
     {
       debugPrintln(F("ledsHandle: lightsOn ON"));
       FastLED.setBrightness(lastBrightness);
-      fill_solid(leds, NUM_LEDS, CRGB(lastRed, lastGreen, lastBlue));
+      fill_solid(leds, atoi(ledsToUse), CRGB(lastRed, lastGreen, lastBlue));
       FastLED.show();
     }
     else
@@ -298,12 +305,16 @@ void ledsHandle()
       FastLED.setBrightness(brightness);
       FastLED.show();
       lastBrightness = brightness;
+      if(0 == brightness)
+      {
+        lightsOn = false;
+      }
     }
 
     if (lastRed != red || lastGreen != green || lastBlue != blue)
     {
       debugPrintln(F("ledsHandle: color changing"));
-      fill_solid(leds, NUM_LEDS, CRGB(red, green, blue));
+      fill_solid(leds, atoi(ledsToUse), CRGB(red, green, blue));
       FastLED.show();
       lastRed = red;
       lastGreen = green;
@@ -315,7 +326,7 @@ void ledsHandle()
 void handleRainbow()
 {
   uint8_t hueRate = 100;                            // Effects cycle rate. (range >0 to 255)
-  fill_rainbow(leds, NUM_LEDS, millis() / hueRate); // Start hue effected by time.
+  fill_rainbow(leds, atoi(ledsToUse), millis() / hueRate); // Start hue effected by time.
   FastLED.show();
 }
 
@@ -330,13 +341,21 @@ void ledsCommand(DynamicJsonDocument cmd)
   brightness = cmd["brightness"].as<int>();
   rainbow = cmd["rainbow"].as<bool>();
 
-  debugPrintln(String(F("LEDS: red: ")) + String(red) + "; green: " + String(green) + "; blue: " + String(blue) + "; brightness: " + String(brightness) + "; rainbow: " + String(rainbow));
+  if( 0 != brightness)
+  {
+    // force it
+    lastLightsOn = false;
+    lightsOn = true;
+  }
+
+  debugPrintln(String(F("LEDS: red: ")) + String(red) + "; green: " + String(green) + "; blue: " + String(blue) + "; brightness: " + String(brightness) + "; rainbow: " + String(rainbow) + "; On: " + String(lightsOn) + "; LEDs: " + String(ledsToUse));
 }
 
 void ledsSetup()
 {
-  debugPrintln(F("ledsSetup"));
-  FastLED.addLeds<NEOPIXEL, LED_DATA_PIN>(leds, NUM_LEDS); // GRB ordering is assumed
+
+  debugPrintln(String(F("ledsSetup: LED Count: ")) + String(ledsToUse));
+  FastLED.addLeds<NEOPIXEL, LED_DATA_PIN>(leds, atoi(ledsToUse)); // GRB ordering is assumed
 }
 
 void mqttCallback(String &strTopic, String &strPayload)
@@ -370,8 +389,19 @@ void mqttCallback(String &strTopic, String &strPayload)
   }
   else if (strTopic == mqttSetTopic)
   {
-    debugPrintln(F("MQTT ON/OFF changing"));ß
+    debugPrintln(F("MQTT ON/OFF changing"));
     lightsOn = strPayload == "ON";
+  }
+  else if (strTopic == mqttBrightnessTopic)
+  {
+    debugPrintln(F("MQTT brightness changing"));
+    int b = strPayload.toInt();
+    debugPrintln(String(F("\tto: ")) + String(b) + "%");
+    int level = 255.0 * (b/100.0);
+    debugPrintln(String(F("\tlevel: ")) + String(level));
+    brightness = level;
+    // FastLED.setBrightness(level);
+    // FastLED.show();
   }
 }
 
@@ -388,6 +418,7 @@ void mqttConnect()
   mqttStatusTopic = "fcrgb/" + String(fcrgbNode) + "/status";
   mqttSensorTopic = "fcrgb/" + String(fcrgbNode) + "/sensor";
   mqttSetTopic = "fcrgb/" + String(fcrgbNode) + "/set";
+  mqttBrightnessTopic = "fcrgb/" + String(fcrgbNode) + "/brightness";
 
   const String mqttCommandSubscription = mqttCommandTopic + "/#";
 
@@ -425,6 +456,10 @@ void mqttConnect()
       if (mqttClient.subscribe(mqttSetTopic))
       {
         debugPrintln(String(F("MQTT: subscribed to ")) + mqttSetTopic);
+      }
+      if(mqttClient.subscribe(mqttBrightnessTopic))
+      {
+        debugPrintln(String(F("MQTT: subscribed to ")) + mqttBrightnessTopic);
       }
 
       if (mqttFirstConnect)
@@ -627,6 +662,12 @@ void webHandleConfigSave()
     shouldSaveConfig = true;
     webServer.arg("configPassword").toCharArray(configPassword, 32);
   }
+  if (webServer.arg("ledsToUse") != "" && webServer.arg("ledsToUse") != String(ledsToUse))
+  { // Handle ledsToUse
+    shouldSaveConfig = true;
+    webServer.arg("ledsToUse").toCharArray(ledsToUse, 4);
+  }
+
 
   if (shouldSaveConfig)
   { // Config updated, notify user and trigger write to SPIFFS
@@ -727,6 +768,7 @@ void webHandleRoot()
   httpMessage += String(F("<b>WiFi SSID</b> <i><small>(required)</small></i><input id='wifiSSID' required name='wifiSSID' maxlength=32 placeholder='WiFi SSID' value='")) + String(WiFi.SSID()) + "'>";
   httpMessage += String(F("<br/><b>WiFi Password</b> <i><small>(required)</small></i><input id='wifiPass' required name='wifiPass' type='password' maxlength=64 placeholder='WiFi Password' value='")) + String("********") + "'>";
   httpMessage += String(F("<br/><br/><b>FCRGB Node Name</b> <i><small>(required. lowercase letters, numbers, and _ only)</small></i><input id='fcrgbNode' required name='fcrgbNode' maxlength=15 placeholder='FCRGB Node Name' pattern='[a-z0-9_]*' value='")) + String(fcrgbNode) + "'>";
+  httpMessage += String(F("<br/><b>Number of LEDs</b> <i><small>(required)</small></i><input id='ledsToUse' required name='ledsToUse' type='number' maxlength=3 placeholder='LED count' value='")) + String(ledsToUse) + "'>";
   httpMessage += String(F("<br/><br/><b>MQTT Broker</b> <i><small>(required)</small></i><input id='mqttServer' required name='mqttServer' maxlength=63 placeholder='mqttServer' value='")) + String(mqttServer) + "'>";
   httpMessage += String(F("<br/><b>MQTT Port</b> <i><small>(required)</small></i><input id='mqttPort' required name='mqttPort' type='number' maxlength=5 placeholder='mqttPort' value='")) + String(mqttPort) + "'>";
   httpMessage += String(F("<br/><b>MQTT User</b> <i><small>(optional)</small></i><input id='mqttUser' name='mqttUser' maxlength=31 placeholder='mqttUser' value='")) + String(mqttUser) + "'>";
@@ -741,7 +783,7 @@ void webHandleRoot()
   {
     httpMessage += String("********");
   }
-
+   
   httpMessage += String(F("'><br/><hr><button type='submit'>save settings</button></form>"));
 
   httpMessage += String(F("<hr><form method='get' action='reboot'>"));

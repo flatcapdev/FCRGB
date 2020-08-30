@@ -31,9 +31,9 @@
 #define debugSerialEnabled 1
 
 // LEDs
-#define NUM_LEDS 14
+#define MAX_NUM_LEDS 601  // max number of LEDs (10m of 60LEDs/m)
 #define LED_DATA_PIN 12
-CRGB leds[NUM_LEDS];
+CRGB leds[MAX_NUM_LEDS];
 
 // OPTIONAL: Assign default values here.
 char wifiPass[64] = ""; // when updating, but that's probably OK because they will be saved in EEPROM.
@@ -43,6 +43,7 @@ char wifiSSID[32] = ""; // Leave unset for wireless autoconfig. Note that these 
 char configPassword[32] = "";
 char configUser[32] = "admin";
 char fcrgbNode[16] = "fcrgb01";
+char ledsToUse[4] = "1";
 char mqttServer[64] = "";
 char mqttPort[6] = "1883";
 char mqttUser[32] = "";
@@ -52,6 +53,7 @@ char mqttPassword[32] = "";
 const unsigned long connectTimeout = 300;           // Timeout for WiFi and MQTT connection attempts in seconds
 byte espMac[6];                                     // Byte array to store our MAC address
 const float fcrgbVersion = 0.01;                    // current version
+String mqttBrightnessTopic;                         // MATT topic for incomming brightness commands
 String mqttClientId;                                // Auto-generated MQTT ClientID
 String mqttCommandTopic;                            // MQTT topic for incoming panel commands
 String mqttSetTopic;                                // MQTT topic for incoming switch commands
