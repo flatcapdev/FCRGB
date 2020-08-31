@@ -486,13 +486,8 @@ void mqttCallback(String &strTopic, String &strPayload)
   else if (strTopic == mqttBrightnessTopic)
   {
     debugPrintln(F("MQTT brightness changing"));
-    int b = strPayload.toInt();
-    debugPrintln(String(F("\tto: ")) + String(b) + "%");
-    int level = 255.0 * (b / 100.0);
-    debugPrintln(String(F("\tlevel: ")) + String(level));
-    brightness = level;
-    // FastLED.setBrightness(level);
-    // FastLED.show();
+    brightness = strPayload.toInt();
+    lightsOn = 0 != brightness;
   }
 }
 
