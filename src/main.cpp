@@ -367,18 +367,22 @@ void ledsHandle()
         if (brightnessChanged)
         {
           NVS.setInt("lastBrightness", lastBrightness);
+          debugPrintln(String(F("LED: lastBrightness: ")) + String(lastBrightness));
         }
         if (redChanged)
         {
           NVS.setInt("lastRed", lastRed);
+          debugPrintln(String(F("LED: lastRed: ")) + String(lastRed));
         }
         if (greenChanged)
         {
           NVS.setInt("lastGreen", lastGreen);
+          debugPrintln(String(F("LED: lastGreen: ")) + String(lastGreen));
         }
         if (blueChanged)
         {
           NVS.setInt("lastBlue", lastBlue);
+          debugPrintln(String(F("LED: lastBlue: ")) + String(lastBlue));
         }
 
         NVS.commit();
@@ -412,29 +416,37 @@ void ledsCommand(DynamicJsonDocument cmd)
     lightsOn = true;
   }
 
-  debugPrintln(String(F("LEDS: red: ")) + String(red) + "; green: " + String(green) + "; blue: " + String(blue) + "; brightness: " + String(brightness) + "; rainbow: " + String(rainbow) + "; On: " + String(lightsOn) + "; LEDs: " + String(ledsToUse));
+  debugPrintln(String(F("LED: red: ")) + String(red) + "; green: " + String(green) + "; blue: " + String(blue) + "; brightness: " + String(brightness) + "; rainbow: " + String(rainbow) + "; On: " + String(lightsOn) + "; LEDs: " + String(ledsToUse));
 }
 
 void ledsSetup()
 {
-
-  debugPrintln(String(F("ledsSetup: LED Count: ")) + String(ledsToUse));
+  debugPrintln(String(F("LED: LED Count: ")) + String(ledsToUse));
   FastLED.addLeds<NEOPIXEL, LED_DATA_PIN>(leds, atoi(ledsToUse)); // GRB ordering is assumed
 
-  while (millis() < 2000)
-  {
-    handleRainbow();
-  }
-  if (NVS.begin())
-  {
-    lastRed = NVS.getInt("lastRed");
-    lastGreen = NVS.getInt("lastGreen");
-    lastBlue = NVS.getInt("lastBlue");
-    lastBrightness = NVS.getInt("lastBrightness");
+  FastLED.setBrightness(128);
+  fill_solid(leds, atoi(ledsToUse), CRGB::Red);
+  FastLED.show();
+  delay(250);
+  fill_solid(leds, atoi(ledsToUse), CRGB::Green);
+  FastLED.show();
+  delay(250);
+  fill_solid(leds, atoi(ledsToUse), CRGB::Blue);
+  FastLED.show();
+  delay(250);
 
-    lightsOn = 0 != brightness;
-    lastLightsOn = !lightsOn;
-  }
+  red = lastRed = NVS.getInt("lastRed");
+  green = lastGreen = NVS.getInt("lastGreen");
+  blue = lastBlue = NVS.getInt("lastBlue");
+  brightness = lastBrightness = NVS.getInt("lastBrightness");
+
+  debugPrintln(String(F("LED: lastRed: ")) + String(lastRed));
+  debugPrintln(String(F("LED: lastGreen: ")) + String(lastGreen));
+  debugPrintln(String(F("LED: lastBlue: ")) + String(lastBlue));
+  debugPrintln(String(F("LED: lastBrightness: ")) + String(lastBrightness));
+
+  lightsOn = 0 != lastBrightness;
+  lastLightsOn = !lightsOn;
 }
 
 void mqttCallback(String &strTopic, String &strPayload)
