@@ -61,6 +61,31 @@ void loop()
   ledsHandle();
 }
 
+void colorCommand(DynamicJsonDocument cmd)
+{
+  int h = cmd["h"].as<int>();
+  int s = cmd["s"].as<int>();
+
+  colorHsv2Rgb(h / 360.0, s / 100.0, 1.0);
+}
+
+float colorFract(float x)
+{
+  return x - int(x);
+}
+
+void colorHsv2Rgb(float h, float s, float b)
+{
+  red = b * colorMix(1.0, constrain(abs(colorFract(h + 1.0) * 6.0 - 3.0) - 1.0, 0.0, 1.0), s) * 255;
+  green = b * colorMix(1.0, constrain(abs(colorFract(h + 0.6666666) * 6.0 - 3.0) - 1.0, 0.0, 1.0), s) * 255;
+  blue = b * colorMix(1.0, constrain(abs(colorFract(h + 0.3333333) * 6.0 - 3.0) - 1.0, 0.0, 1.0), s) * 255;
+}
+
+float colorMix(float a, float b, float t)
+{
+  return a + (b - a) * t;
+}
+
 // Clear out all local storage
 void configClearSaved()
 {
@@ -364,29 +389,26 @@ void ledsHandle()
     {
       if (brightnessChanged)
       {
-        if (brightnessChanged)
-        {
-          NVS.setInt("lastBrightness", lastBrightness);
-          debugPrintln(String(F("LED: lastBrightness: ")) + String(lastBrightness));
-        }
-        if (redChanged)
-        {
-          NVS.setInt("lastRed", lastRed);
-          debugPrintln(String(F("LED: lastRed: ")) + String(lastRed));
-        }
-        if (greenChanged)
-        {
-          NVS.setInt("lastGreen", lastGreen);
-          debugPrintln(String(F("LED: lastGreen: ")) + String(lastGreen));
-        }
-        if (blueChanged)
-        {
-          NVS.setInt("lastBlue", lastBlue);
-          debugPrintln(String(F("LED: lastBlue: ")) + String(lastBlue));
-        }
-
-        NVS.commit();
+        NVS.setInt("lastBrightness", lastBrightness);
+        debugPrintln(String(F("LED: lastBrightness: ")) + String(lastBrightness));
       }
+      if (redChanged)
+      {
+        NVS.setInt("lastRed", lastRed);
+        debugPrintln(String(F("LED: lastRed: ")) + String(lastRed));
+      }
+      if (greenChanged)
+      {
+        NVS.setInt("lastGreen", lastGreen);
+        debugPrintln(String(F("LED: lastGreen: ")) + String(lastGreen));
+      }
+      if (blueChanged)
+      {
+        NVS.setInt("lastBlue", lastBlue);
+        debugPrintln(String(F("LED: lastBlue: ")) + String(lastBlue));
+      }
+
+      NVS.commit();
     }
   }
 }
@@ -459,7 +481,8 @@ void mqttCallback(String &strTopic, String &strPayload)
   }
   else if (strTopic == mqttCommandTopic && strPayload != "")
   {
-    mqttParseJson(strPayload);
+    auto cmd = mqttParseJson(strPayload);
+    ledsCommand(cmd);
   }
   else if (strTopic == (mqttCommandTopic + "/statusupdate"))
   {                     // '[...]/device/command/statusupdate' == mqttStatusUpdate()
@@ -489,6 +512,12 @@ void mqttCallback(String &strTopic, String &strPayload)
     brightness = strPayload.toInt();
     lightsOn = 0 != brightness;
   }
+  else if (strTopic == mqttColorTopic)
+  {
+    debugPrintln(F("MQTT color changing"));
+    auto cmd = mqttParseJson(strPayload);
+    colorCommand(cmd);
+  }
 }
 
 // MQTT connection and subscriptions
@@ -505,6 +534,7 @@ void mqttConnect()
   mqttSensorTopic = "fcrgb/" + String(fcrgbNode) + "/sensor";
   mqttSetTopic = "fcrgb/" + String(fcrgbNode) + "/set";
   mqttBrightnessTopic = "fcrgb/" + String(fcrgbNode) + "/brightness";
+  mqttColorTopic = "fcrgb/" + String(fcrgbNode) + "/color";
 
   const String mqttCommandSubscription = mqttCommandTopic + "/#";
 
@@ -547,6 +577,10 @@ void mqttConnect()
       {
         debugPrintln(String(F("MQTT: subscribed to ")) + mqttBrightnessTopic);
       }
+      if (mqttClient.subscribe(mqttColorTopic))
+      {
+        debugPrintln(String(F("MQTT: subscribed to ")) + mqttColorTopic);
+      }
 
       if (mqttFirstConnect)
       { // Force any subscribed clients to toggle OFF/ON when we first connect to
@@ -587,8 +621,8 @@ void mqttConnect()
   }
 }
 
-// Parse an incoming JSON array into individual Nextion commands
-void mqttParseJson(String &strPayload)
+// Parse an incoming JSON array
+DynamicJsonDocument mqttParseJson(String &strPayload)
 {
   if (strPayload.endsWith(",]"))
   { // Trailing null array elements are an artifact of older Home Assistant automations and need to
@@ -604,8 +638,7 @@ void mqttParseJson(String &strPayload)
   }
   else
   {
-    // deserializeJson(fcrgbCommands, strPayload);
-    ledsCommand(fcrgbCommand);
+    return fcrgbCommand;
   }
 }
 
