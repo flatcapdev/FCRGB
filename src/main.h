@@ -9,6 +9,7 @@
 
 #include <EffectCycle.h>
 #include <EffectCylon.h>
+#include <EffectDisco.h>
 #include <EffectFire.h>
 #include <EffectRainbow.h>
 

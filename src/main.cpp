@@ -58,13 +58,17 @@ void loop()
   {
     handleCycle(leds, atoi(ledsToUse));
   }
-  else if(String("cylon") == effect)
+  else if (String("cylon") == effect)
   {
     handleCylon(leds, atoi(ledsToUse));
   }
-  else if(String("cylon-rainbow") == effect)
+  else if (String("cylon-rainbow") == effect)
   {
     handleCylon(leds, atoi(ledsToUse), true);
+  }
+  else if (String("disco") == effect)
+  {
+    handleDisco(leds, atoi(ledsToUse));
   }
   else if (String("fire") == effect)
   {
