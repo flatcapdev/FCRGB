@@ -54,7 +54,11 @@ void loop()
     mqttSensorUpdate();
   }
 
-  if (String("cycle") == effect)
+  if(String("christmas") == effect)
+  {
+    handleRWBGlitter(leds, atoi(ledsToUse), true);
+  }
+  else if (String("cycle") == effect)
   {
     handleCycle(leds, atoi(ledsToUse));
   }
@@ -77,6 +81,10 @@ void loop()
   else if (String("rainbow") == effect)
   {
     handleRainbow(leds, atoi(ledsToUse));
+  }
+  else if (String("rwb-glitter") == effect)
+  {
+    handleRWBGlitter(leds, atoi(ledsToUse));
   }
   else
   {

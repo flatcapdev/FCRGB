@@ -12,6 +12,7 @@
 #include <EffectDisco.h>
 #include <EffectFire.h>
 #include <EffectRainbow.h>
+#include <EffectRWBGlitter.h>
 
 #define ESP_getChipId() ((uint32_t)ESP.getEfuseMac())
 
