@@ -24,6 +24,7 @@ void setup()
   ledsSetup();
 
   debugPrintln(F("SYSTEM: System init complete."));
+  mqttSensorUpdate();
 }
 
 void loop()
@@ -50,40 +51,25 @@ void loop()
   if ((millis() - statusUpdateTimer) >= statusUpdateInterval)
   { // Run periodic status update
     statusUpdateTimer = millis();
-    mqttStatusUpdate();
+    mqttSensorUpdate();
   }
 
-  if (rainbow && lightsOn)
+  if (String("rainbow") == effect)
   {
-    handleRainbow();
+    handleRainbow(leds, atoi(ledsToUse));
   }
-
-  ledsHandle();
-}
-
-void colorCommand(DynamicJsonDocument cmd)
-{
-  int h = cmd["h"].as<int>();
-  int s = cmd["s"].as<int>();
-
-  colorHsv2Rgb(h / 360.0, s / 100.0, 1.0);
-}
-
-float colorFract(float x)
-{
-  return x - int(x);
-}
-
-void colorHsv2Rgb(float h, float s, float b)
-{
-  red = b * colorMix(1.0, constrain(abs(colorFract(h + 1.0) * 6.0 - 3.0) - 1.0, 0.0, 1.0), s) * 255;
-  green = b * colorMix(1.0, constrain(abs(colorFract(h + 0.6666666) * 6.0 - 3.0) - 1.0, 0.0, 1.0), s) * 255;
-  blue = b * colorMix(1.0, constrain(abs(colorFract(h + 0.3333333) * 6.0 - 3.0) - 1.0, 0.0, 1.0), s) * 255;
-}
-
-float colorMix(float a, float b, float t)
-{
-  return a + (b - a) * t;
+  else if (String("fire") == effect)
+  {
+    handleFire(leds, atoi(ledsToUse));
+  }
+  else if (String("cycle") == effect)
+  {
+    handleCycle(leds, atoi(ledsToUse));
+  }
+  else
+  {
+    ledsHandle();
+  }
 }
 
 // Clear out all local storage
@@ -177,8 +163,9 @@ void espReset()
 
   if (mqttClient.connected())
   {
-    mqttClient.publish(mqttStatusTopic, "OFF", true, 1);
-    mqttClient.publish(mqttSensorTopic, "{\"status\": \"unavailable\"}", true, 1);
+    // TODO: handle this in the json file somehow...
+    // mqttClient.publish(mqttTopicStatus, "OFF", true, 1);
+    mqttClient.publish(mqttTopicSensor, "{\"status\": \"unavailable\"}", true, 1);
     mqttClient.disconnect();
   }
 
@@ -338,7 +325,14 @@ void espWifiSetup()
 
 void ledsHandle()
 {
-  if (lastLightsOn != lightsOn)
+  bool lightsOnChanged = false;
+  bool brightnessChanged = false;
+  bool redChanged = false;
+  bool greenChanged = false;
+  bool blueChanged = false;
+
+  lightsOnChanged = lastLightsOn != lightsOn;
+  if (lightsOnChanged)
   {
     debugPrintln(String(F("ledsHandle: lightsOn changing (")) + String(ledsToUse) + ")");
     if (lightsOn)
@@ -359,86 +353,64 @@ void ledsHandle()
 
   if (lightsOn)
   {
-    bool brightnessChanged = lastBrightness != brightness;
+    brightnessChanged = lastBrightness != brightness;
     if (brightnessChanged)
     {
       debugPrintln(F("ledsHandle: brightness changing"));
       FastLED.setBrightness(brightness);
       FastLED.show();
       lastBrightness = brightness;
-      if (0 == brightness)
-      {
-        lightsOn = false;
-      }
     }
 
-    bool redChanged = lastRed != red;
-    bool greenChanged = lastGreen != green;
-    bool blueChanged = lastBlue != blue;
+    redChanged = lastRed != red;
+    greenChanged = lastGreen != green;
+    blueChanged = lastBlue != blue;
+
     if (redChanged || greenChanged || blueChanged)
     {
       debugPrintln(F("ledsHandle: color changing"));
       fill_solid(leds, atoi(ledsToUse), CRGB(red, green, blue));
       FastLED.show();
+      char rgb[12];
+      sprintf(rgb, "%d,%d,%d", red, green, blue);
       lastRed = red;
       lastGreen = green;
       lastBlue = blue;
     }
-
-    if (brightnessChanged || redChanged || greenChanged || blueChanged)
-    {
-      if (brightnessChanged)
-      {
-        NVS.setInt("lastBrightness", lastBrightness);
-        debugPrintln(String(F("LED: lastBrightness: ")) + String(lastBrightness));
-      }
-      if (redChanged)
-      {
-        NVS.setInt("lastRed", lastRed);
-        debugPrintln(String(F("LED: lastRed: ")) + String(lastRed));
-      }
-      if (greenChanged)
-      {
-        NVS.setInt("lastGreen", lastGreen);
-        debugPrintln(String(F("LED: lastGreen: ")) + String(lastGreen));
-      }
-      if (blueChanged)
-      {
-        NVS.setInt("lastBlue", lastBlue);
-        debugPrintln(String(F("LED: lastBlue: ")) + String(lastBlue));
-      }
-
-      NVS.commit();
-    }
   }
-}
 
-void handleRainbow()
-{
-  uint8_t hueRate = 100;                                   // Effects cycle rate. (range >0 to 255)
-  fill_rainbow(leds, atoi(ledsToUse), millis() / hueRate); // Start hue effected by time.
-  FastLED.show();
-}
-
-void ledsCommand(DynamicJsonDocument cmd)
-{
-
-  const char *hex = 1 + (cmd["color"].as<const char *>()); // skip leading '#'
-  sscanf(0 + hex, "%2x", &red);
-  sscanf(2 + hex, "%2x", &green);
-  sscanf(4 + hex, "%2x", &blue);
-
-  brightness = cmd["brightness"].as<int>();
-  rainbow = cmd["rainbow"].as<bool>();
-
-  if (0 != brightness)
+  if (brightnessChanged || redChanged || greenChanged || blueChanged || lightsOnChanged)
   {
-    // force it
-    lastLightsOn = false;
-    lightsOn = true;
-  }
+    if (brightnessChanged)
+    {
+      NVS.setInt("lastBrightness", lastBrightness);
+      debugPrintln(String(F("LED: lastBrightness: ")) + String(lastBrightness));
+    }
+    if (redChanged)
+    {
+      NVS.setInt("lastRed", lastRed);
+      debugPrintln(String(F("LED: lastRed: ")) + String(lastRed));
+    }
+    if (greenChanged)
+    {
+      NVS.setInt("lastGreen", lastGreen);
+      debugPrintln(String(F("LED: lastGreen: ")) + String(lastGreen));
+    }
+    if (blueChanged)
+    {
+      NVS.setInt("lastBlue", lastBlue);
+      debugPrintln(String(F("LED: lastBlue: ")) + String(lastBlue));
+    }
+    if (lightsOnChanged)
+    {
+      NVS.setInt("lastLightsOn", lastLightsOn ? 1 : 0);
+      debugPrintln(lastLightsOn ? String(F("LED: lastOn: ON")) : String(F("LED: lastOn: OFF")));
+    }
 
-  debugPrintln(String(F("LED: red: ")) + String(red) + "; green: " + String(green) + "; blue: " + String(blue) + "; brightness: " + String(brightness) + "; rainbow: " + String(rainbow) + "; On: " + String(lightsOn) + "; LEDs: " + String(ledsToUse));
+    mqttStateUpdate();
+
+    NVS.commit();
+  }
 }
 
 void ledsSetup()
@@ -457,66 +429,46 @@ void ledsSetup()
   FastLED.show();
   delay(250);
 
-  red = lastRed = NVS.getInt("lastRed");
-  green = lastGreen = NVS.getInt("lastGreen");
-  blue = lastBlue = NVS.getInt("lastBlue");
-  brightness = lastBrightness = NVS.getInt("lastBrightness");
+  red = NVS.getInt("lastRed");
+  green = NVS.getInt("lastGreen");
+  blue = NVS.getInt("lastBlue");
+  brightness = NVS.getInt("lastBrightness");
+  lightsOn = NVS.getInt("lastLightsOn") == 1;
 
-  debugPrintln(String(F("LED: lastRed: ")) + String(lastRed));
-  debugPrintln(String(F("LED: lastGreen: ")) + String(lastGreen));
-  debugPrintln(String(F("LED: lastBlue: ")) + String(lastBlue));
-  debugPrintln(String(F("LED: lastBrightness: ")) + String(lastBrightness));
+  debugPrintln(String(F("LED: Red: ")) + String(red));
+  debugPrintln(String(F("LED: Green: ")) + String(green));
+  debugPrintln(String(F("LED: Blue: ")) + String(blue));
+  debugPrintln(String(F("LED: Brightness: ")) + String(brightness));
+  debugPrintln(String(F("LED: LightsOn: ")) + String(lightsOn));
 
-  lightsOn = 0 != lastBrightness;
-  lastLightsOn = !lightsOn;
+  lastLightsOn = !lastLightsOn;
+  lastRed = lastGreen = lastBlue = lastBrightness = 0;
 }
 
 void mqttCallback(String &strTopic, String &strPayload)
 {
   debugPrintln(String(F("MQTT IN: '")) + strTopic + "' : '" + strPayload + "'");
 
-  if (strTopic == mqttCommandTopic && strPayload == "")
-  {                     // '[...]/device/command' -m '' = No command requested, respond with mqttStatusUpdate()
-    mqttStatusUpdate(); // return status JSON via MQTT
-  }
-  else if (strTopic == mqttCommandTopic && strPayload != "")
+  if (strTopic == mqttTopicSet && strPayload == "")
   {
-    auto cmd = mqttParseJson(strPayload);
-    ledsCommand(cmd);
+    mqttSensorUpdate(); // return status JSON via MQTT
   }
-  else if (strTopic == (mqttCommandTopic + "/statusupdate"))
-  {                     // '[...]/device/command/statusupdate' == mqttStatusUpdate()
-    mqttStatusUpdate(); // return status JSON via MQTT
+  else if (strTopic == mqttTopicSet && strPayload != "")
+  {
+    mqttParseJson(strPayload);
   }
-  else if (strTopic == (mqttCommandTopic + "/reboot"))
-  { // '[...]/device/command/reboot' == reboot microcontroller)
+  else if (strTopic == (mqttTopicSet + "/statusupdate"))
+  {
+    mqttSensorUpdate(); // return status JSON via MQTT
+  }
+  else if (strTopic == (mqttTopicSet + "/reboot"))
+  {
     debugPrintln(F("MQTT: Rebooting device"));
     espReset();
   }
-  else if (strTopic == (mqttCommandTopic + "/factoryreset"))
-  { // '[...]/device/command/factoryreset' == clear all saved settings)
+  else if (strTopic == (mqttTopicSet + "/factoryreset"))
+  {
     configClearSaved();
-  }
-  else if (strTopic == mqttStatusTopic && strPayload == "OFF")
-  { // catch a dangling LWT from a previous connection if it appears
-    mqttClient.publish(mqttStatusTopic, "ON");
-  }
-  else if (strTopic == mqttSetTopic)
-  {
-    debugPrintln(F("MQTT ON/OFF changing"));
-    lightsOn = strPayload == "ON";
-  }
-  else if (strTopic == mqttBrightnessTopic)
-  {
-    debugPrintln(F("MQTT brightness changing"));
-    brightness = strPayload.toInt();
-    lightsOn = 0 != brightness;
-  }
-  else if (strTopic == mqttColorTopic)
-  {
-    debugPrintln(F("MQTT color changing"));
-    auto cmd = mqttParseJson(strPayload);
-    colorCommand(cmd);
   }
 }
 
@@ -524,19 +476,16 @@ void mqttCallback(String &strTopic, String &strPayload)
 void mqttConnect()
 {
 
-  static bool mqttFirstConnect = true; // For the first connection, we want to send an OFF/ON state to
-                                       // trigger any automations, but skip that if we reconnect while
-                                       // still running the sketch
+  // static bool mqttFirstConnect = true; // For the first connection, we want to send an OFF/ON state to
+  //                                      // trigger any automations, but skip that if we reconnect while
+  //                                      // still running the sketch
 
   // MQTT topic string definitions
-  mqttCommandTopic = "fcrgb/" + String(fcrgbNode) + "/command";
-  mqttStatusTopic = "fcrgb/" + String(fcrgbNode) + "/status";
-  mqttSensorTopic = "fcrgb/" + String(fcrgbNode) + "/sensor";
-  mqttSetTopic = "fcrgb/" + String(fcrgbNode) + "/set";
-  mqttBrightnessTopic = "fcrgb/" + String(fcrgbNode) + "/brightness";
-  mqttColorTopic = "fcrgb/" + String(fcrgbNode) + "/color";
+  mqttTopicSet = "fcrgb/" + String(fcrgbNode) + "/set";
+  mqttTopicStatus = "fcrgb/" + String(fcrgbNode) + "/status";
+  mqttTopicSensor = "fcrgb/" + String(fcrgbNode) + "/sensor";
 
-  const String mqttCommandSubscription = mqttCommandTopic + "/#";
+  const String mqttCommandSubscription = mqttTopicSet + "/#";
 
   // Loop until we're reconnected to MQTT
   while (!mqttClient.connected())
@@ -551,50 +500,45 @@ void mqttConnect()
     // Set keepAlive, cleanSession, timeout
     mqttClient.setOptions(30, true, 5000);
 
+    // TODO: What is this?
     // declare LWT
-    mqttClient.setWill(mqttStatusTopic.c_str(), "OFF");
+    //mqttClient.setWill(mqttTopicStatus.c_str(), "OFF");
 
+    // Attempt to connect to broker, setting last will and testament
     if (mqttClient.connect(mqttClientId.c_str(), mqttUser, mqttPassword))
-    { // Attempt to connect to broker, setting last will and testament
-      // Subscribe to our incoming topics
+    {
+      // Subscribe to our topics
+      if (mqttClient.subscribe(mqttTopicSet))
+      {
+        debugPrintln(String(F("MQTT: subscribed to ")) + mqttTopicSet);
+      }
+      if (mqttClient.subscribe(mqttTopicStatus))
+      {
+        debugPrintln(String(F("MQTT: subscribed to ")) + mqttTopicStatus);
+      }
+      if (mqttClient.subscribe(mqttTopicSensor))
+      {
+        debugPrintln(String(F("MQTT: subscribed to ")) + mqttTopicSensor);
+      }
       if (mqttClient.subscribe(mqttCommandSubscription))
       {
         debugPrintln(String(F("MQTT: subscribed to ")) + mqttCommandSubscription);
       }
-      if (mqttClient.subscribe(mqttStatusTopic))
-      {
-        debugPrintln(String(F("MQTT: subscribed to ")) + mqttStatusTopic);
-      }
-      if (mqttClient.subscribe(mqttSensorTopic))
-      {
-        debugPrintln(String(F("MQTT: subscribed to ")) + mqttSensorTopic);
-      }
-      if (mqttClient.subscribe(mqttSetTopic))
-      {
-        debugPrintln(String(F("MQTT: subscribed to ")) + mqttSetTopic);
-      }
-      if (mqttClient.subscribe(mqttBrightnessTopic))
-      {
-        debugPrintln(String(F("MQTT: subscribed to ")) + mqttBrightnessTopic);
-      }
-      if (mqttClient.subscribe(mqttColorTopic))
-      {
-        debugPrintln(String(F("MQTT: subscribed to ")) + mqttColorTopic);
-      }
 
-      if (mqttFirstConnect)
-      { // Force any subscribed clients to toggle OFF/ON when we first connect to
-        // make sure we get a full panel refresh at power on.  Sending OFF,
-        // "ON" will be sent by the mqttStatusTopic subscription action.
-        debugPrintln(String(F("MQTT: binary_sensor state: [")) + mqttStatusTopic + "] : [OFF]");
-        mqttClient.publish(mqttStatusTopic, "OFF", true, 1);
-        mqttFirstConnect = false;
-      }
-      else
-      {
-        debugPrintln(String(F("MQTT: binary_sensor state: [")) + mqttStatusTopic + "] : [ON]");
-        mqttClient.publish(mqttStatusTopic, "ON", true, 1);
-      }
+      // TODO: Handle this with json...
+      // if (mqttFirstConnect)
+      // { // Force any subscribed clients to toggle OFF/ON when we first connect to
+      //   // make sure we get a full panel refresh at power on.  Sending OFF,
+      //   // "ON" will be sent by the mqttStatusTopic subscription action.
+      //   debugPrintln(String(F("MQTT: binary_sensor state: [")) + mqttTopicStatus + "] : [OFF]");
+      //   mqttClient.publish(mqttTopicStatus, "OFF", true, 1);
+      //   mqttFirstConnect = false;
+      // }
+      // else
+      // {
+      //   debugPrintln(String(F("MQTT: binary_sensor state: [")) + mqttTopicStatus + "] : " + lightsOn ? "[ON]" : "[OFF]");
+      //   mqttClient.publish(mqttTopicStatus, lightsOn ? "ON" : "OFF", true, 1);
+      // }
 
       mqttReconnectCount = 0;
 
@@ -622,7 +566,7 @@ void mqttConnect()
 }
 
 // Parse an incoming JSON array
-DynamicJsonDocument mqttParseJson(String &strPayload)
+void mqttParseJson(String &strPayload)
 {
   if (strPayload.endsWith(",]"))
   { // Trailing null array elements are an artifact of older Home Assistant automations and need to
@@ -638,7 +582,58 @@ DynamicJsonDocument mqttParseJson(String &strPayload)
   }
   else
   {
-    return fcrgbCommand;
+    // state: ON/OFF
+    const char *state = fcrgbCommand["state"];
+    if (state)
+    {
+      debugPrintln(String(F("MQTT Parse: state")));
+      lightsOn = strcmp(state, "ON") == 0;
+    }
+
+    // brightness: 1 - 255
+    int bright = fcrgbCommand["brightness"];
+    if (bright)
+    {
+      debugPrintln(String(F("MQTT Parse: brightness")));
+      brightness = bright;
+    }
+
+    // color: {r: 0 - 255, g: 0 - 255, b: 0 - 255}
+    auto color = fcrgbCommand["color"];
+    if (color)
+    {
+      debugPrintln(String(F("MQTT Parse: color")));
+      red = color["r"];
+      green = color["g"];
+      blue = color["b"];
+    }
+
+    const char *e = fcrgbCommand["effect"];
+    if (e)
+    {
+      if (strcmp(e, "reset") == 0)
+      {
+        debugPrintln(String(F("MQTT Parse: effect none")));
+        effect = "";
+        lastBrightness = 0;
+        lastRed = 0;
+        lastGreen = 0;
+        lastBrightness = 0;
+        lastLightsOn = !lightsOn;
+      }
+      else
+      {
+        debugPrintln(String(F("MQTT Parse: effect ")) + String(e));
+        effect = String(e);
+      }
+    }
+    else
+    {
+      debugPrintln(String(F("MQTT Parse: no effect")));
+      effect = "";
+    }
+
+    // TODO transition:
   }
 }
 
@@ -651,7 +646,7 @@ void mqttSetup()
 }
 
 // Periodically publish a JSON string indicating system status
-void mqttStatusUpdate()
+void mqttSensorUpdate()
 {
   String mqttStatusPayload = "{";
   mqttStatusPayload += String(F("\"status\":\"available\","));
@@ -668,10 +663,32 @@ void mqttStatusUpdate()
 #endif
   mqttStatusPayload += "}";
 
-  mqttClient.publish(mqttSensorTopic, mqttStatusPayload, true, 1);
-  mqttClient.publish(mqttStatusTopic, "ON", true, 1);
+  mqttClient.publish(mqttTopicSensor, mqttStatusPayload, true, 1);
   debugPrintln(String(F("MQTT: status update: ")) + String(mqttStatusPayload));
-  debugPrintln(String(F("MQTT: binary_sensor state: [")) + mqttStatusTopic + "] : [ON]");
+  // debugPrintln(String(F("MQTT: binary_sensor state: [")) + mqttTopicStatus + "] : " + lightsOn ? "[ON]" : "[OFF]");
+}
+
+void mqttStateUpdate()
+{
+  debugPrintln(String(F("MQTT: state update")));
+  StaticJsonDocument<mqttMaxPacketSize + 1024> doc;
+  JsonObject root = doc.to<JsonObject>();
+  root["state"] = lightsOn ? "ON" : "OFF";
+  root["brightness"] = brightness;
+  JsonObject color = root.createNestedObject("color");
+  color["r"] = red;
+  color["g"] = green;
+  color["b"] = blue;
+  if (!effect.isEmpty())
+  {
+    root["effect"] = effect;
+  }
+
+  // TODO: transition
+
+  String state;
+  serializeJsonPretty(root, state);
+  mqttClient.publish(mqttTopicStatus, state, true, 1);
 }
 
 // http://fcrgb01/configReset
