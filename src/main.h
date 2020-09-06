@@ -8,6 +8,7 @@
 #include <WiFiClient.h>
 
 #include <EffectCycle.h>
+#include <EffectCylon.h>
 #include <EffectFire.h>
 #include <EffectRainbow.h>
 

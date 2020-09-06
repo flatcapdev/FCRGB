@@ -54,17 +54,25 @@ void loop()
     mqttSensorUpdate();
   }
 
-  if (String("rainbow") == effect)
+  if (String("cycle") == effect)
   {
-    handleRainbow(leds, atoi(ledsToUse));
+    handleCycle(leds, atoi(ledsToUse));
+  }
+  else if(String("cylon") == effect)
+  {
+    handleCylon(leds, atoi(ledsToUse));
+  }
+  else if(String("cylon-rainbow") == effect)
+  {
+    handleCylon(leds, atoi(ledsToUse), true);
   }
   else if (String("fire") == effect)
   {
     handleFire(leds, atoi(ledsToUse));
   }
-  else if (String("cycle") == effect)
+  else if (String("rainbow") == effect)
   {
-    handleCycle(leds, atoi(ledsToUse));
+    handleRainbow(leds, atoi(ledsToUse));
   }
   else
   {
