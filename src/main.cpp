@@ -647,11 +647,6 @@ void mqttParseJson(String &strPayload)
         effect = String(e);
       }
     }
-    else
-    {
-      debugPrintln(String(F("MQTT Parse: no effect")));
-      effect = "";
-    }
 
     // TODO transition:
   }
