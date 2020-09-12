@@ -60,7 +60,7 @@ char mqttPassword[32] = "";
 // Other variables
 const unsigned long connectTimeout = 300;          // Timeout for WiFi and MQTT connection attempts in seconds
 byte espMac[6];                                    // Byte array to store our MAC address
-const float fcrgbVersion = 0.01;                   // current version
+const float fcrgbVersion = 0.02;                   // current version
 String mqttClientId;                               // Auto-generated MQTT ClientID
 const uint16_t mqttMaxPacketSize = 4096;           // Size of buffer for incoming MQTT message
 String mqttTopicSet;                               // MQTT topic for incoming JSON commands
@@ -74,8 +74,8 @@ const char wifiConfigAP[16] = "FCRGB";             // First-time config SSID
 const char wifiConfigPass[16] = "fcrgbcontroller"; // First-time config WPA2 password
 String effect = "";                                // Controls effects like rainbow mode
 
-int brightness, red, green, blue;                 // new lighting values
-int lastBrightness, lastRed, lastGreen, lastBlue; // last lighting values
+uint8_t brightness, red, green, blue;                 // new lighting values
+uint8_t lastBrightness, lastRed, lastGreen, lastBlue; // last lighting values
 bool lightsOn;                                    // whether or not the lights are on.
 bool lastLightsOn;                                // last light on value
 

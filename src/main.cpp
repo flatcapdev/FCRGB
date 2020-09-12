@@ -54,7 +54,7 @@ void loop()
     mqttSensorUpdate();
   }
 
-  if(String("christmas") == effect)
+  if (String("christmas") == effect)
   {
     handleRWBGlitter(leds, atoi(ledsToUse), true);
   }
@@ -610,14 +610,6 @@ void mqttParseJson(String &strPayload)
       lightsOn = strcmp(state, "ON") == 0;
     }
 
-    // brightness: 1 - 255
-    int bright = fcrgbCommand["brightness"];
-    if (bright)
-    {
-      debugPrintln(String(F("MQTT Parse: brightness")));
-      brightness = bright;
-    }
-
     // color: {r: 0 - 255, g: 0 - 255, b: 0 - 255}
     auto color = fcrgbCommand["color"];
     if (color)
@@ -645,6 +637,21 @@ void mqttParseJson(String &strPayload)
       {
         debugPrintln(String(F("MQTT Parse: effect ")) + String(e));
         effect = String(e);
+      }
+    }
+
+    // brightness: 1 - 255
+    uint8_t bright = fcrgbCommand["brightness"];
+    if (bright)
+    {
+      debugPrintln(String(F("MQTT Parse: brightness")));
+      if (effect.isEmpty())
+      {
+        brightness = bright;
+      }
+      else
+      {
+        FastLED.setBrightness(bright);
       }
     }
 
