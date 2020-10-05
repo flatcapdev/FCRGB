@@ -104,6 +104,19 @@ void configClearSaved()
   espReset();
 }
 
+// Print config
+void configPrint()
+{
+  debugPrintln(String(F("NVS: fcrgbNode = ")) + String(fcrgbNode));
+  debugPrintln(String(F("NVS: mqttServer = ")) + String(mqttServer));
+  debugPrintln(String(F("NVS: mqttPort = ")) + String(mqttPort));
+  debugPrintln(String(F("NVS: mqttUser = ")) + String(mqttUser));
+  debugPrintln(String(F("NVS: mqttPassword = ")) + String(mqttPassword));
+  debugPrintln(String(F("NVS: configUser = ")) + String(configUser));
+  debugPrintln(String(F("NVS: configPassword = ")) + String(configPassword));
+  debugPrintln(String(F("NWS: NumLEDs = ")) + String(ledsToUse));
+}
+
 // Read saved config from NVS
 void configRead()
 {
@@ -119,14 +132,7 @@ void configRead()
     NVS.getString("configUser").toCharArray(configUser, sizeof(configUser));
     NVS.getString("NumLEDs").toCharArray(ledsToUse, sizeof(ledsToUse));
 
-    debugPrintln(String(F("NVS: fcrgbNode = ")) + String(fcrgbNode));
-    debugPrintln(String(F("NVS: mqttServer = ")) + String(mqttServer));
-    debugPrintln(String(F("NVS: mqttPort = ")) + String(mqttPort));
-    debugPrintln(String(F("NVS: mqttUser = ")) + String(mqttUser));
-    debugPrintln(String(F("NVS: mqttPassword = ")) + String(mqttPassword));
-    debugPrintln(String(F("NVS: configUser = ")) + String(configUser));
-    debugPrintln(String(F("NVS: configPassword = ")) + String(configPassword));
-    debugPrintln(String(F("NWS: NumLEDs = ")) + String(ledsToUse));
+    configPrint();
   }
   else
   {
@@ -149,14 +155,7 @@ void configSave()
 
   NVS.commit();
 
-  debugPrintln(String(F("NVS: fcrgbNode = ")) + String(fcrgbNode));
-  debugPrintln(String(F("NVS: mqttServer = ")) + String(mqttServer));
-  debugPrintln(String(F("NVS: mqttPort = ")) + String(mqttPort));
-  debugPrintln(String(F("NVS: mqttUser = ")) + String(mqttUser));
-  debugPrintln(String(F("NVS: mqttPassword = ")) + String(mqttPassword));
-  debugPrintln(String(F("NVS: configUser = ")) + String(configUser));
-  debugPrintln(String(F("NVS: configPassword = ")) + String(configPassword));
-  debugPrintln(String(F("NWS: NumLEDs = ")) + String(ledsToUse));
+  configPrint();
 
   shouldSaveConfig = false;
 }
@@ -316,6 +315,8 @@ void espWifiSetup()
     strcpy(configPassword, custom_configPassword.getValue());
     strcpy(configUser, custom_configUser.getValue());
     strcpy(ledsToUse, custom_numLeds.getValue());
+
+    configPrint();
 
     if (shouldSaveConfig)
     { // Save the custom parameters to FS
@@ -774,6 +775,7 @@ void webHandleConfigSave()
   // Check required values
   if (webServer.arg("wifiSSID") != "" && webServer.arg("wifiSSID") != String(WiFi.SSID()))
   { // Handle WiFi update
+    debugPrintln(String(F("HTTP: SSID Changed")));
     shouldSaveConfig = true;
     shouldSaveWifi = true;
     webServer.arg("wifiSSID").toCharArray(wifiSSID, 32);
@@ -784,16 +786,19 @@ void webHandleConfigSave()
   }
   if (webServer.arg("mqttServer") != "" && webServer.arg("mqttServer") != String(mqttServer))
   { // Handle mqttServer
+    debugPrintln(String(F("HTTP: mqttServer Changed")));
     shouldSaveConfig = true;
     webServer.arg("mqttServer").toCharArray(mqttServer, 64);
   }
   if (webServer.arg("mqttPort") != "" && webServer.arg("mqttPort") != String(mqttPort))
   { // Handle mqttPort
+    debugPrintln(String(F("HTTP: mqttPort Changed")));
     shouldSaveConfig = true;
     webServer.arg("mqttPort").toCharArray(mqttPort, 6);
   }
   if (webServer.arg("fcrgbNode") != "" && webServer.arg("fcrgbNode") != String(fcrgbNode))
   { // Handle fcrgbNode
+    debugPrintln(String(F("HTTP: fcrgbNode Changed")));
     shouldSaveConfig = true;
     String lowerHaspNode = webServer.arg("fcrgbNode");
     lowerHaspNode.toLowerCase();
@@ -802,32 +807,37 @@ void webHandleConfigSave()
   // Check optional values
   if (webServer.arg("mqttUser") != String(mqttUser))
   { // Handle mqttUser
+    debugPrintln(String(F("HTTP: mqttUser Changed")));
     shouldSaveConfig = true;
     webServer.arg("mqttUser").toCharArray(mqttUser, 32);
   }
   if (webServer.arg("mqttPassword") != String("********"))
   { // Handle mqttPassword
+    debugPrintln(String(F("HTTP: mqttPassword Changed")));
     shouldSaveConfig = true;
     webServer.arg("mqttPassword").toCharArray(mqttPassword, 32);
   }
   if (webServer.arg("configUser") != String(configUser))
   { // Handle configUser
+    debugPrintln(String(F("HTTP: configUser Changed")));
     shouldSaveConfig = true;
     webServer.arg("configUser").toCharArray(configUser, 32);
   }
   if (webServer.arg("configPassword") != String("********"))
   { // Handle configPassword
+    debugPrintln(String(F("HTTP: configPassword Changed")));
     shouldSaveConfig = true;
     webServer.arg("configPassword").toCharArray(configPassword, 32);
   }
   if (webServer.arg("ledsToUse") != "" && webServer.arg("ledsToUse") != String(ledsToUse))
   { // Handle ledsToUse
+    debugPrintln(String(F("HTTP: ledsToUse Changed")));
     shouldSaveConfig = true;
     webServer.arg("ledsToUse").toCharArray(ledsToUse, 4);
   }
 
   if (shouldSaveConfig)
-  { // Config updated, notify user and trigger write to SPIFFS
+  { // Config updated, notify user and trigger write to NVS
     httpMessage += String(F("<meta http-equiv='refresh' content='15;url=/' />"));
     httpMessage += FPSTR(WM_HTTP_HEAD_END);
     httpMessage += String(F("<h1>")) + String(fcrgbNode) + String(F("</h1>"));

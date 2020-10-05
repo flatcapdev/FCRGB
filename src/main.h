@@ -76,8 +76,8 @@ String effect = "";                                // Controls effects like rain
 
 uint8_t brightness, red, green, blue;                 // new lighting values
 uint8_t lastBrightness, lastRed, lastGreen, lastBlue; // last lighting values
-bool lightsOn;                                    // whether or not the lights are on.
-bool lastLightsOn;                                // last light on value
+bool lightsOn;                                        // whether or not the lights are on.
+bool lastLightsOn;                                    // last light on value
 
 MQTTClient mqttClient(mqttMaxPacketSize);
 WebServer webServer(80);
@@ -87,6 +87,7 @@ WiFiClient wifiMQTTClient;
 const char FCRGB_STYLE[] = "<style>button{background-color:#f4ac03;}body{width:60%;margin:auto;}input:invalid{border:1px solid red;}input[type=checkbox]{width:20px;}</style>";
 
 void configClearSaved();
+void configPrint();
 void configRead();
 void configSave();
 void configSaveCallback();
