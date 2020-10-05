@@ -13,13 +13,7 @@ void fadeall(struct CRGB *leds, int numToFill)
         leds[i].nscale8(250);
     }
 }
-
-void handleCylon(struct CRGB *leds, int numToFill)
-{
-    handleCylon(leds, numToFill, false);
-}
-
-void handleCylon(struct CRGB *leds, int numToFill, bool rainbow)
+void handleCylon(struct CRGB *leds, int numToFill, bool rainbow, CRGB color)
 {
     unsigned long currentMillis = millis();
     if (currentMillis - cylonPreviousMillis > cylonDelay)
@@ -32,7 +26,7 @@ void handleCylon(struct CRGB *leds, int numToFill, bool rainbow)
         }
         else
         {
-            leds[cylonPos] = CRGB::Red;
+            leds[cylonPos] = color;
         }
         FastLED.show();
         fadeall(leds, numToFill);
@@ -44,4 +38,14 @@ void handleCylon(struct CRGB *leds, int numToFill, bool rainbow)
             cylonPos += cylonDir;
         }
     }
+}
+
+void handleCylon(struct CRGB *leds, int numToFill)
+{
+    handleCylon(leds, numToFill, true, CRGB::Red);
+}
+
+void handleCylon(struct CRGB *leds, int numToFill, CRGB color)
+{
+    handleCylon(leds, numToFill, false, color);
 }
