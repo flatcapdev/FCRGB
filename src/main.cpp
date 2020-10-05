@@ -64,11 +64,19 @@ void loop()
   }
   else if (String("cylon") == effect)
   {
-    handleCylon(leds, atoi(ledsToUse));
+    handleCylon(leds, atoi(ledsToUse), CRGB::Red);
+  }
+  else if (String("cylon-green") == effect)
+  {
+    handleCylon(leds, atoi(ledsToUse), CRGB::Green);
+  }
+  else if (String("cylon-purple") == effect)
+  {
+    handleCylon(leds, atoi(ledsToUse), CRGB::Purple);
   }
   else if (String("cylon-rainbow") == effect)
   {
-    handleCylon(leds, atoi(ledsToUse), true);
+    handleCylon(leds, atoi(ledsToUse));
   }
   else if (String("disco") == effect)
   {
