@@ -54,11 +54,11 @@ void loop()
     mqttSensorUpdate();
   }
 
-  if(String("candle") == effect)
+  if (String("candle") == effect)
   {
     handleCandle(leds, atoi(ledsToUse));
   }
-  if(String("candle-green") == effect)
+  if (String("candle-green") == effect)
   {
     handleCandle(leds, atoi(ledsToUse), CRGB::Green);
   }
@@ -190,6 +190,16 @@ void debugPrintln(String debugText)
   String debugTimeText = "[+" + String(float(millis()) / 1000, 3) + "s] " + debugText;
   Serial.println(debugTimeText);
 #endif
+}
+
+void effectClear()
+{
+  effect = "";
+  lastBrightness = 0;
+  lastRed = 0;
+  lastGreen = 0;
+  lastBrightness = 0;
+  lastLightsOn = !lightsOn;
 }
 
 void espReset()
@@ -625,6 +635,10 @@ void mqttParseJson(String &strPayload)
     {
       debugPrintln(String(F("MQTT Parse: state")));
       lightsOn = strcmp(state, "ON") == 0;
+      if(!lightsOn)
+      {
+        effectClear();
+      }
     }
 
     // color: {r: 0 - 255, g: 0 - 255, b: 0 - 255}
@@ -643,12 +657,7 @@ void mqttParseJson(String &strPayload)
       if (strcmp(e, "reset") == 0)
       {
         debugPrintln(String(F("MQTT Parse: effect none")));
-        effect = "";
-        lastBrightness = 0;
-        lastRed = 0;
-        lastGreen = 0;
-        lastBrightness = 0;
-        lastLightsOn = !lightsOn;
+        effectClear();
       }
       else
       {

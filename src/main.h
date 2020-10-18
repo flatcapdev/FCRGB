@@ -61,7 +61,7 @@ char mqttPassword[32] = "";
 // Other variables
 const unsigned long connectTimeout = 300;          // Timeout for WiFi and MQTT connection attempts in seconds
 byte espMac[6];                                    // Byte array to store our MAC address
-const float fcrgbVersion = 0.03;                   // current version
+const float fcrgbVersion = 0.04;                   // current version
 String mqttClientId;                               // Auto-generated MQTT ClientID
 const uint16_t mqttMaxPacketSize = 4096;           // Size of buffer for incoming MQTT message
 String mqttTopicSet;                               // MQTT topic for incoming JSON commands
@@ -93,6 +93,7 @@ void configRead();
 void configSave();
 void configSaveCallback();
 void debugPrintln(String debugText);
+void effectClear();
 void espReset();
 void espSetupOta();
 void espWifiConfigCallback(ESP_WiFiManager *myWiFiManager);
