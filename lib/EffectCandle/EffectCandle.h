@@ -4,7 +4,7 @@
 #include <Arduino.h>
 #include<FastLED.h>
 
-void handleCandle(struct CRGB *leds, int numToFill);
-void handleCandle(struct CRGB *leds, int numToFill, CRGB color);
+void handleCandle(struct CRGB *leds, int numToFill, uint8_t maxBrightness);
+void handleCandle(struct CRGB *leds, int numToFill, uint8_t maxBrightness, CRGB color);
 
 #endif
