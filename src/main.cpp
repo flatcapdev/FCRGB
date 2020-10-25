@@ -56,11 +56,11 @@ void loop()
 
   if (String("candle") == effect)
   {
-    handleCandle(leds, atoi(ledsToUse));
+    handleCandle(leds, atoi(ledsToUse), brightness);
   }
   if (String("candle-green") == effect)
   {
-    handleCandle(leds, atoi(ledsToUse), CRGB::Green);
+    handleCandle(leds, atoi(ledsToUse), brightness, CRGB::Green);
   }
   else if (String("christmas") == effect)
   {
@@ -671,14 +671,14 @@ void mqttParseJson(String &strPayload)
     if (bright)
     {
       debugPrintln(String(F("MQTT Parse: brightness")));
-      if (effect.isEmpty())
-      {
+      // if (effect.isEmpty())
+      // {
         brightness = bright;
-      }
-      else
-      {
-        FastLED.setBrightness(bright);
-      }
+      // }
+      // else
+      // {
+      //   FastLED.setBrightness(bright);
+      // }
     }
 
     // TODO transition:
