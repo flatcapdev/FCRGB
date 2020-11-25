@@ -66,6 +66,10 @@ void loop()
   {
     handleRWBGlitter(leds, atoi(ledsToUse), true);
   }
+  else if (String("christmas1") == effect)
+  {
+    handleChristmas1(leds, atoi(ledsToUse));
+  }
   else if (String("cycle") == effect)
   {
     handleCycle(leds, atoi(ledsToUse));
@@ -190,7 +194,7 @@ void debugPrintln(String debugText)
   String debugTimeText = "[+" + String(float(millis()) / 1000, 3) + "s] " + debugText;
   Serial.println(debugTimeText);
 #endif
-}
+  }
 
 void effectClear()
 {
@@ -635,7 +639,7 @@ void mqttParseJson(String &strPayload)
     {
       debugPrintln(String(F("MQTT Parse: state")));
       lightsOn = strcmp(state, "ON") == 0;
-      if(!lightsOn)
+      if (!lightsOn)
       {
         effectClear();
       }
@@ -673,7 +677,7 @@ void mqttParseJson(String &strPayload)
       debugPrintln(String(F("MQTT Parse: brightness")));
       // if (effect.isEmpty())
       // {
-        brightness = bright;
+      brightness = bright;
       // }
       // else
       // {

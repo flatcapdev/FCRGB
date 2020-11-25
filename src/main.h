@@ -8,6 +8,7 @@
 #include <WiFiClient.h>
 
 #include <EffectCandle.h>
+#include <EffectChristmas1.h>
 #include <EffectCycle.h>
 #include <EffectCylon.h>
 #include <EffectDisco.h>
@@ -60,8 +61,9 @@ char mqttPassword[32] = "";
 
 // Other variables
 const unsigned long connectTimeout = 300;          // Timeout for WiFi and MQTT connection attempts in seconds
+String effect = "";                                // Controls effects like rainbow mode
 byte espMac[6];                                    // Byte array to store our MAC address
-const float fcrgbVersion = 0.05;                   // current version
+const float fcrgbVersion = 0.06;                   // current version
 String mqttClientId;                               // Auto-generated MQTT ClientID
 const uint16_t mqttMaxPacketSize = 4096;           // Size of buffer for incoming MQTT message
 String mqttTopicSet;                               // MQTT topic for incoming JSON commands
@@ -73,7 +75,6 @@ const long statusUpdateInterval = 300000;          // Time in msec between publi
 long statusUpdateTimer = 0;                        // Timer for update check
 const char wifiConfigAP[16] = "FCRGB";             // First-time config SSID
 const char wifiConfigPass[16] = "fcrgbcontroller"; // First-time config WPA2 password
-String effect = "";                                // Controls effects like rainbow mode
 
 uint8_t brightness, red, green, blue;                 // new lighting values
 uint8_t lastBrightness, lastRed, lastGreen, lastBlue; // last lighting values
