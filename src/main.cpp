@@ -3,7 +3,8 @@
 void setup()
 {
 #ifdef debugSerialEnabled
-  Serial.begin(115200);
+  Serial.begin(9600);
+  // Serial.begin(115200);
 #endif
 
   debugPrintln(String(F("SYSTEM: Starting FCRGB v")) + String(fcrgbVersion));
@@ -52,6 +53,12 @@ void loop()
   { // Run periodic status update
     statusUpdateTimer = millis();
     mqttSensorUpdate();
+  }
+
+  if (mqttShouldSendUpdate)
+  {
+    mqttShouldSendUpdate = false;
+    mqttStateUpdate();
   }
 
   if (String("candle") == effect)
@@ -194,7 +201,7 @@ void debugPrintln(String debugText)
   String debugTimeText = "[+" + String(float(millis()) / 1000, 3) + "s] " + debugText;
   Serial.println(debugTimeText);
 #endif
-  }
+}
 
 void effectClear()
 {
@@ -458,8 +465,6 @@ void ledsHandle()
       debugPrintln(lastLightsOn ? String(F("LED: lastOn: ON")) : String(F("LED: lastOn: OFF")));
     }
 
-    mqttStateUpdate();
-
     NVS.commit();
   }
 }
@@ -507,6 +512,7 @@ void mqttCallback(String &strTopic, String &strPayload)
   else if (strTopic == mqttTopicSet && strPayload != "")
   {
     mqttParseJson(strPayload);
+    mqttShouldSendUpdate = true;
   }
   else if (strTopic == (mqttTopicSet + "/statusupdate"))
   {
@@ -675,14 +681,7 @@ void mqttParseJson(String &strPayload)
     if (bright)
     {
       debugPrintln(String(F("MQTT Parse: brightness")));
-      // if (effect.isEmpty())
-      // {
       brightness = bright;
-      // }
-      // else
-      // {
-      //   FastLED.setBrightness(bright);
-      // }
     }
 
     // TODO transition:
@@ -731,10 +730,7 @@ void mqttStateUpdate()
   color["r"] = red;
   color["g"] = green;
   color["b"] = blue;
-  if (!effect.isEmpty())
-  {
-    root["effect"] = effect;
-  }
+  root["effect"] = effect;
 
   // TODO: transition
 
