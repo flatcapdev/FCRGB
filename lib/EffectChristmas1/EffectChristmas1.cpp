@@ -57,11 +57,11 @@ const TProgmemRGBPalette16 Snow_p FL_PROGMEM =
 #define C9_Blue 0x070758
 #define C9_White 0x606820
 const TProgmemRGBPalette16 RetroC9_p FL_PROGMEM =
-    {C9_Red, C9_Orange, C9_Red, C9_Orange,
-     C9_Orange, C9_Red, C9_Orange, C9_Red,
-     C9_Green, C9_Green, C9_Green, C9_Green,
-     C9_Blue, C9_Blue, C9_Blue,
-     C9_White};
+    {C9_Red, C9_Red, C9_Red,
+    C9_Orange, C9_Orange, C9_Orange,
+    C9_Green, C9_Green, C9_Green,
+    C9_Blue, C9_Blue, C9_Blue, C9_Blue,
+    C9_White, C9_White, C9_White};
 
 // A cold, icy pale blue palette
 #define Ice_Blue1 0x0C1040
