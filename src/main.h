@@ -63,7 +63,7 @@ char mqttPassword[32] = "";
 const unsigned long connectTimeout = 300;          // Timeout for WiFi and MQTT connection attempts in seconds
 String effect = "";                                // Controls effects like rainbow mode
 byte espMac[6];                                    // Byte array to store our MAC address
-const float fcrgbVersion = 0.07;                   // current version
+const float fcrgbVersion = 0.08;                   // current version
 String mqttClientId;                               // Auto-generated MQTT ClientID
 const uint16_t mqttMaxPacketSize = 4096;           // Size of buffer for incoming MQTT message
 bool mqttShouldSendUpdate = false;                 // MQTT send status update
