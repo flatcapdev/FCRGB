@@ -35,22 +35,22 @@ CRGBPalette16 gPaletteChristmas(
 #define C9_White 0x606820
 
 CRGBPalette16 gPaletteChristmas2(
-    C9_Red, C9_Red, 
-    C9_Orange, C9_Orange, C9_Orange, C9_Orange,
-    C9_Green, C9_Green, C9_Green, C9_Green, 
-    C9_Blue, C9_Blue, C9_Blue, C9_Blue, 
-    C9_White, C9_White);
+    C9_Red, C9_Red, C9_Red,
+    C9_Orange, C9_Orange, C9_Orange,
+    C9_Green, C9_Green, C9_Green,
+    C9_Blue, C9_Blue, C9_Blue, C9_Blue,
+    C9_White, C9_White, C9_White);
 
-void fill_data_array(struct CRGB *leds, int numToFill)
+void fill_data_array(struct CRGB *leds, int numToFill, bool christmas)
 {
     static uint8_t startValue = 0;
-    startValue = startValue + 2;
+    startValue = startValue - 2;
 
     uint8_t value = startValue;
     for (int i = 0; i < numToFill; i++)
     {
-        data[i] = triwave8(value); // convert value to an up-and-down wave
-        value += 7;
+        data[i] = christmas ? value : triwave8(value); // convert value to an up-and-down wave
+        value += christmas ? 14 : 7;
     }
 }
 
@@ -58,7 +58,7 @@ void render_data_with_palette(struct CRGB *leds, int numToFill, bool christmas)
 {
     for (int i = 0; i < numToFill; i++)
     {
-        leds[i] = ColorFromPalette(christmas ? gPaletteChristmas2 : gPaletteRWB, data[i], 128, christmas ? NOBLEND : LINEARBLEND);
+        leds[i] = ColorFromPalette(christmas ? gPaletteChristmas2 : gPaletteRWB, data[i], 128, LINEARBLEND);
     }
 }
 
@@ -85,7 +85,7 @@ void handleRWBGlitter(struct CRGB *leds, int numToFill)
 
 void handleRWBGlitter(struct CRGB *leds, int numToFill, bool christmas)
 {
-    fill_data_array(leds, numToFill);
+    fill_data_array(leds, numToFill, christmas);
     render_data_with_palette(leds, numToFill, christmas);
     add_glitter(leds, numToFill);
 
