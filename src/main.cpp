@@ -65,6 +65,10 @@ void loop()
   {
     handleCandle(leds, atoi(ledsToUse), brightness);
   }
+  if (String("candle2") == effect)
+  {
+    handleCandle2(leds, atoi(ledsToUse));
+  }
   if (String("candle-green") == effect)
   {
     handleCandle(leds, atoi(ledsToUse), brightness, CRGB::Green);
